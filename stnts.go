@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -27,6 +28,7 @@ var FlagSet = flag.NewFlagSet("stnts", flag.ExitOnError)
 
 var (
 	FlagAddr = FlagSet.String("addr", "localhost:8000", "host:port to listen on")
+	FlagConf = FlagSet.String("conf", "", "configuration file to use")
 	FlagLogs = FlagSet.String("logs", "", "file to write logs to")
 	FlagWarm = FlagSet.Bool("warm", false, "warm icon cache before start")
 )
@@ -35,7 +37,7 @@ var (
 ///////////////////////////////////////
 
 // MainSite is the global Site configuration object.
-var MainSite *Site
+var MainSite = new(Site)
 
 // 1.3: global cache variables
 ///////////////////////////////
@@ -87,17 +89,6 @@ func DownloadURL(addr string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-// DownloadIcon returns a URL's favicon as a byteslice.
-func DownloadIcon(addr string) ([]byte, error) {
-	uobj, err := url.Parse(addr)
-	if err != nil {
-		return nil, err
-	}
-
-	icon := fmt.Sprintf("%s://%s/favicon.ico", uobj.Scheme, uobj.Hostname())
-	return DownloadURL(icon)
-}
-
 ///////////////////////////////////////////////////////////////////////////////////////
 //                        part four · configuration data types                       //
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -117,20 +108,23 @@ type Conf struct {
 //////////////////////
 
 // Link is a single named website link.
+// TODO: Try Addr as literal URL object, maybe JSON can unmarshal from string?
 type Link struct {
 	Name string `json:"name"`
 	From string `json:"from"`
 	Addr string `json:"addr"`
 }
 
-// Link.Host returns the Link's host URL.
-func (l *Link) Host() (string, error) {
-	uobj, err := url.Parse(l.Addr)
-	if err != nil {
-		return "", err
-	}
+// Link.Base returns the Link's base URL.
+func (l *Link) Base() string {
+	uobj, _ := url.Parse(l.Addr)
+	return fmt.Sprintf("%s://%s", uobj.Scheme, uobj.Hostname())
+}
 
-	return fmt.Sprintf("%s://%s", uobj.Scheme, uobj.Hostname()), nil
+// Link.Hostname returns the Link's hostname.
+func (l *Link) Hostname() string {
+	uobj, _ := url.Parse(l.Addr)
+	return uobj.Hostname()
 }
 
 // 4.3: the List type
@@ -150,4 +144,53 @@ type Site struct {
 	Conf  *Conf   `json:"conf"`
 	Icons []*Link `json:"icons"`
 	Lists []*List `json:"lists"`
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+//                             part ??? · main functions                             //
+///////////////////////////////////////////////////////////////////////////////////////
+
+// main runs the main stnts program.
+func main() {
+	// Parse command-line flags.
+	FlagSet.Parse(os.Args[1:])
+
+	// Configure system logging.
+	if *FlagLogs != "" {
+		file, err := os.Open(*FlagLogs)
+		if err != nil {
+			log.Fatalf("cannot open logfile %s - %s", *FlagLogs, err)
+		}
+
+		defer file.Close()
+		log.Printf("setting logfile to %s", *FlagLogs)
+		log.SetOutput(file)
+	} else {
+		log.Printf("setting logfile to STDOUT")
+		log.SetOutput(os.Stdout)
+	}
+
+	// Parse configuration file.
+	log.Printf("parsing configuration file %s", *FlagConf)
+	if err := ReadJSON(*FlagConf, MainSite); err != nil {
+		log.Fatalf("cannot read configuration file %s - %s", *FlagConf, err)
+	}
+
+	// Warm cache if -warm is true.
+	if *FlagWarm {
+		log.Printf("-warm is true, warming icon cache")
+		for _, link := range MainSite.Icons {
+			log.Printf("downloading icon for %s", link.Base())
+			addr := fmt.Sprintf("%s/favicon.ico", link.Base())
+
+			bytes, err := DownloadURL(addr)
+			if err != nil {
+				log.Printf("cannot download icon for %s - %s", addr, err)
+			}
+
+			CacheMutex.Lock()
+			Cache[link.Hostname()] = bytes
+			CacheMutex.Unlock()
+		}
+	}
 }
