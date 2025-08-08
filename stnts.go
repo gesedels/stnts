@@ -5,7 +5,9 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
+	"os"
 	"sync"
 )
 
@@ -33,3 +35,27 @@ var Cache = make(map[string][]byte)
 
 // CacheMutex is the global mutex for writing to the Cache.
 var CacheMutex = new(sync.Mutex)
+
+///////////////////////////////////////////////////////////////////////////////////////
+//                           part two · json file functions                          //
+///////////////////////////////////////////////////////////////////////////////////////
+
+// ReadJSON unmarshals a JSON file into an object.
+func ReadJSON(orig string, data any) error {
+	bytes, err := os.ReadFile(orig)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(bytes, data)
+}
+
+// WriteJSON marshals an object into a JSON file.
+func WriteJSON(dest string, data any) error {
+	bytes, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(dest, bytes, 0666)
+}
