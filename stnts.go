@@ -7,6 +7,10 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"sync"
 )
@@ -58,4 +62,32 @@ func WriteJSON(dest string, data any) error {
 	}
 
 	return os.WriteFile(dest, bytes, 0666)
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+//                     part three · cache and download functions                     //
+///////////////////////////////////////////////////////////////////////////////////////
+
+// DownloadURL returns the contents of a URL as a byteslice.
+func DownloadURL(addr string) ([]byte, error) {
+	resp, err := http.Get(addr)
+	switch {
+	case err != nil:
+		return nil, err
+	case resp.StatusCode != http.StatusOK:
+		return nil, fmt.Errorf("download %s failed with %d", addr, resp.StatusCode)
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
+// DownloadIcon returns a URL's favicon as a byteslice.
+func DownloadIcon(addr string) ([]byte, error) {
+	uobj, err := url.Parse(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	icon := fmt.Sprintf("%s://%s/favicon.ico", uobj.Scheme, uobj.Hostname())
+	return DownloadURL(icon)
 }
