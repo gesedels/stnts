@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -212,6 +213,21 @@ func GetIndex(w http.ResponseWriter, r *http.Request) {
 	WriteTemplate(w, http.StatusOK, tobj, MainSite)
 }
 
+// GetCSS returns an embedded CSS file.
+func GetCSS(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	path := filepath.Join("files/css", name)
+	bytes, err := MainFS.ReadFile(path)
+	if err != nil {
+		WriteError(w, http.StatusNotFound, "css file %q not found", name)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/css")
+	w.WriteHeader(http.StatusOK)
+	w.Write(bytes)
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////
 //                          part ??? · middleware functions                          //
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -241,6 +257,7 @@ func init() {
 
 	// Register handler routes.
 	Mux.HandleFunc("GET /", LoggingWare(GetIndex))
+	Mux.HandleFunc("GET /css/{name...}", LoggingWare(GetCSS))
 
 	// Parse site configuration.
 	if err := ReadJSON(*FlagConf, MainSite); err != nil {
