@@ -12,10 +12,10 @@ import (
 func TestGetResponse(t *testing.T) {
 	// setup
 	w := httptest.NewRecorder()
-	fmt.Fprint(w, "body")
+	fmt.Fprint(w, "test")
 
 	// success
 	code, body := GetResponse(w)
 	assert.Equal(t, http.StatusOK, code)
-	assert.Equal(t, "body", body)
+	assert.Equal(t, "test", body)
 }
