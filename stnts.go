@@ -31,19 +31,16 @@ func GetIndex(w http.ResponseWriter, r *http.Request) {
 	resp.Template(w, tobj, http.StatusOK, MainSite)
 }
 
-// TODO: Add resp.File for serving FS files.
-func GetCSS(w http.ResponseWriter, r *http.Request) {
-	name := r.PathValue("name")
-	path := filepath.Join("files/css", name)
-	bytes, err := MainFS.ReadFile(path)
-	if err != nil {
+func GetFile(w http.ResponseWriter, r *http.Request) {
+	name := "files/" + r.PathValue("name")
+	switch filepath.Ext(name) {
+	case ".css":
+		resp.File(w, MainFS, http.StatusOK, name, "text/css; charset=utf-8")
+	case ".html":
 		resp.Error(w, http.StatusNotFound, "%q not found", name)
-		return
+	default:
+		resp.File(w, MainFS, http.StatusOK, name, "")
 	}
-
-	w.Header().Set("Content-Type", "text/css")
-	w.WriteHeader(http.StatusOK)
-	w.Write(bytes)
 }
 
 func main() {
@@ -54,7 +51,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", ware.Wrap(GetIndex))
-	mux.HandleFunc("GET /css/{name...}", ware.Wrap(GetCSS))
+	mux.HandleFunc("GET /file/{name...}", ware.Wrap(GetFile))
 
 	site, err := site.Parse(*conf)
 	if err != nil {

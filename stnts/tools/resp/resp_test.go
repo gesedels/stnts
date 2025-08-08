@@ -1,6 +1,7 @@
 package resp
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -33,6 +34,22 @@ func TestError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, code)
 	assert.Equal(t, "error 500: test\n", body)
 	assert.Equal(t, "text/plain; charset=utf-8", ctyp)
+}
+
+func TestFile(t *testing.T) {
+	// setup
+	w := httptest.NewRecorder()
+	cube, _ := test.MockFS.ReadFile("cube.png")
+
+	// success
+	File(w, test.MockFS, http.StatusOK, "cube.png", "")
+	rslt := w.Result()
+	ctyp := rslt.Header.Get("Content-Type")
+	bytes, err := io.ReadAll(rslt.Body)
+	assert.Equal(t, http.StatusOK, rslt.StatusCode)
+	assert.Equal(t, cube, bytes)
+	assert.NoError(t, err)
+	assert.Equal(t, "image/png", ctyp)
 }
 
 func TestTemplate(t *testing.T) {

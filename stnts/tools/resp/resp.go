@@ -2,6 +2,7 @@
 package resp
 
 import (
+	"embed"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -20,6 +21,23 @@ func Error(w http.ResponseWriter, code int, text string, elems ...any) {
 	writeHeaders(w, code, "text/plain; charset=utf-8")
 	text = fmt.Sprintf("error %d: %s\n", code, text)
 	fmt.Fprintf(w, text, elems...)
+}
+
+// File writes a filesystem file and a Content-Type to a ResponseWriter. If ctyp is
+// empty, the Content-Type is auto-detected.
+func File(w http.ResponseWriter, fs embed.FS, code int, name, ctyp string) {
+	bytes, err := fs.ReadFile(name)
+	if err != nil {
+		Error(w, http.StatusNotFound, "%q not found", name)
+		return
+	}
+
+	if ctyp == "" {
+		ctyp = http.DetectContentType(bytes)
+	}
+
+	writeHeaders(w, code, ctyp)
+	w.Write(bytes)
 }
 
 // Template writes a rendered HTML Template to a ResponseWriter.
