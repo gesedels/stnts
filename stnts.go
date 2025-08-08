@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -90,7 +91,34 @@ func DownloadURL(addr string) ([]byte, error) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
-//                        part four · configuration data types                       //
+//                        part four · http response functions                        //
+///////////////////////////////////////////////////////////////////////////////////////
+
+// WriteFromCache writes a Cache value to a ResponseWriter.
+func WriteFromCache(w http.ResponseWriter, code int, name, ctyp string) {
+	w.WriteHeader(code)
+	w.Header().Set("Content-Type", ctyp)
+	w.Write(Cache[name])
+}
+
+// WriteError writes a text/plain error to a ResponseWriter.
+func WriteError(w http.ResponseWriter, code int, text string) {
+	w.WriteHeader(code)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	fmt.Fprintf(w, "error %d: %s", code, text)
+}
+
+// WriteHTML writes a rendered Template to a ResponseWriter.
+func WriteHTML(w http.ResponseWriter, code int, temp *template.Template, pipe any) {
+	w.WriteHeader(code)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := temp.Execute(w, pipe); err != nil {
+		log.Printf("template error - %s", err)
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+//                        part five · configuration data types                       //
 ///////////////////////////////////////////////////////////////////////////////////////
 
 // 4.1: the Conf type
