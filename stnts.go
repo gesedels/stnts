@@ -1,148 +1,44 @@
-///////////////////////////////////////////////////////////////////////////////////////
-//                       stephen's tiny new tab server · v0.0.0                      //
-///////////////////////////////////////////////////////////////////////////////////////
-
 package main
 
 import (
-	"bytes"
 	"embed"
-	"encoding/json"
 	"flag"
-	"fmt"
-	"html/template"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/gesedels/stnts/stnts/items/site"
+	"github.com/gesedels/stnts/stnts/tools/file"
+	"github.com/gesedels/stnts/stnts/tools/resp"
+	"github.com/gesedels/stnts/stnts/tools/temp"
+	"github.com/gesedels/stnts/stnts/tools/ware"
 )
 
-///////////////////////////////////////////////////////////////////////////////////////
-//                          part one · constants and globals                         //
-///////////////////////////////////////////////////////////////////////////////////////
-
-// 1.1: command-line flags
-///////////////////////////
-
-// Flags is the default command-line flag parser.
-var Flags = flag.NewFlagSet("stnts", flag.ExitOnError)
-
-// Defined command-line flags.
 var (
-	FlagAddr  = Flags.String("addr", "localhost:8000", "host:port address")
-	FlagConf  = Flags.String("conf", "", "configuration file")
-	FlagDebug = Flags.Bool("debug", false, "enable debug mode")
+	//go:embed files/**/*
+	MainFS   embed.FS
+	MainSite *site.Site
 )
 
-// 1.2: main storage variables
-///////////////////////////////
-
-// MainFS is the global embedded asset filesystem.
-//
-//go:embed files/**/*
-var MainFS embed.FS
-
-// Site is the global site configuration object.
-var MainSite *site.Site
-
-///////////////////////////////////////////////////////////////////////////////////////
-//                       part two · file and download functions                      //
-///////////////////////////////////////////////////////////////////////////////////////
-
-// ReadJSON unmarshals a JSON file into an object.
-func ReadJSON(orig string, data any) error {
-	bytes, err := os.ReadFile(orig)
-	if err != nil {
-		return err
-	}
-
-	return json.Unmarshal(bytes, data)
-}
-
-///////////////////////////////////////////////////////////////////////////////////////
-//                      part ??? · template rendering functions                      //
-///////////////////////////////////////////////////////////////////////////////////////
-
-// Parse returns a new or cached Template from FS.
-func Parse(names ...string) (*template.Template, error) {
-	name := strings.Join(names, "|")
-
-	if _, ok := TemplateCache[name]; !ok {
-		tobj, err := template.ParseFS(MainFS, names...)
-		if err != nil {
-			return nil, fmt.Errorf("cannot parse template - %w", err)
-		}
-
-		TemplateCacheLock.Lock()
-		TemplateCache[name] = tobj
-		TemplateCacheLock.Unlock()
-	}
-
-	return TemplateCache[name], nil
-}
-
-// Render returns a rendered Template as a byteslice.
-func Render(tobj *template.Template, pipe any) ([]byte, error) {
-	buff := new(bytes.Buffer)
-	if err := tobj.Execute(buff, pipe); err != nil {
-		return nil, fmt.Errorf("cannot render template - %w", err)
-	}
-
-	return buff.Bytes(), nil
-}
-
-///////////////////////////////////////////////////////////////////////////////////////
-//                         part ??? · http response functions                        //
-///////////////////////////////////////////////////////////////////////////////////////
-
-// WriteError writes a formatted text/plain error message to a ResponseWriter.
-func WriteError(w http.ResponseWriter, code int, text string, elems ...any) {
-	text = fmt.Sprintf("error %d: %s", code, text)
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(code)
-	fmt.Fprintf(w, text, elems...)
-}
-
-// WriteTemplate writes a rendered HTML Template to a ResponseWriter.
-func WriteTemplate(w http.ResponseWriter, code int, tobj *template.Template, pipe any) {
-	buff := new(bytes.Buffer)
-	if err := tobj.Execute(buff, pipe); err != nil {
-		WriteError(w, http.StatusInternalServerError, "template error")
-		Log.Printf("error: %s", err)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(code)
-	w.Write(buff.Bytes())
-}
-
-///////////////////////////////////////////////////////////////////////////////////////
-//                            part ??? · handler functions                           //
-///////////////////////////////////////////////////////////////////////////////////////
-
-// GetIndex returns the index page template.
 func GetIndex(w http.ResponseWriter, r *http.Request) {
-	tobj, err := Parse("files/html/_base.html", "files/html/index.html")
+	tobj, err := temp.Parse(MainFS, "files/html/_base.html", "files/html/index.html")
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "template error")
-		Log.Printf("error: %s", err)
+		resp.Error(w, http.StatusInternalServerError, "template error")
+		log.Printf("error: %s", err)
 		return
 	}
 
-	WriteTemplate(w, http.StatusOK, tobj, MainSite)
+	resp.Template(w, tobj, http.StatusOK, MainSite)
 }
 
-// GetCSS returns an embedded CSS file.
+// TODO: Add resp.File for serving FS files.
 func GetCSS(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	path := filepath.Join("files/css", name)
 	bytes, err := MainFS.ReadFile(path)
 	if err != nil {
-		WriteError(w, http.StatusNotFound, "css file %q not found", name)
+		resp.Error(w, http.StatusNotFound, "%q not found", name)
 		return
 	}
 
@@ -151,47 +47,24 @@ func GetCSS(w http.ResponseWriter, r *http.Request) {
 	w.Write(bytes)
 }
 
-///////////////////////////////////////////////////////////////////////////////////////
-//                          part ??? · middleware functions                          //
-///////////////////////////////////////////////////////////////////////////////////////
-
-// LoggingWare wraps a HandlerFunc in middleware to log every incoming request.
-func LoggingWare(hfun http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL.Path)
-		hfun(w, r)
-	}
-}
-
-///////////////////////////////////////////////////////////////////////////////////////
-//                             part ??? · main functions                             //
-///////////////////////////////////////////////////////////////////////////////////////
-
-// init initialises the stnts program before start.
-func init() {
-	// Parse command-line flags.
-	Flags.Parse(os.Args[1:])
-
-	// Initialise control variables.
-	Log = log.New(os.Stdout, "", log.LstdFlags)
-	Mux = http.NewServeMux()
-	MainSite = new(site.Site)
-	Server = &http.Server{Addr: *FlagAddr, Handler: Mux}
-
-	// Register handler routes.
-	Mux.HandleFunc("GET /", LoggingWare(GetIndex))
-	Mux.HandleFunc("GET /css/{name...}", LoggingWare(GetCSS))
-
-	// Parse site configuration.
-	if err := ReadJSON(*FlagConf, MainSite); err != nil {
-		Log.Fatalf("error: %s", err)
-	}
-}
-
-// main runs the main stnts program.
 func main() {
-	Log.Printf("starting server on %q", *FlagAddr)
-	if err := Server.ListenAndServe(); err != nil {
-		Log.Fatal(err)
+	fset := flag.NewFlagSet("stnts", flag.ExitOnError)
+	addr := fset.String("addr", "localhost:8000", "host:port address")
+	conf := fset.String("conf", "", "configuration file")
+	fset.Parse(os.Args[1:])
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /", ware.Wrap(GetIndex))
+	mux.HandleFunc("GET /css/{name...}", ware.Wrap(GetCSS))
+
+	// TODO: Add site.Parse to parse JSON files into Sites.
+	MainSite = new(site.Site)
+	if err := file.ReadJSON(*conf, MainSite); err != nil {
+		log.Fatalf("error: %s", err)
+	}
+
+	srv := &http.Server{Addr: *addr, Handler: mux}
+	if err := srv.ListenAndServe(); err != nil {
+		log.Fatal(err)
 	}
 }
