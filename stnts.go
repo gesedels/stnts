@@ -108,23 +108,22 @@ type Conf struct {
 //////////////////////
 
 // Link is a single named website link.
-// TODO: Try Addr as literal URL object, maybe JSON can unmarshal from string?
 type Link struct {
 	Name string `json:"name"`
 	From string `json:"from"`
 	Addr string `json:"addr"`
 }
 
-// Link.Base returns the Link's base URL.
-func (l *Link) Base() string {
-	uobj, _ := url.Parse(l.Addr)
-	return fmt.Sprintf("%s://%s", uobj.Scheme, uobj.Hostname())
-}
-
-// Link.Hostname returns the Link's hostname.
-func (l *Link) Hostname() string {
+// Link.Host returns the Link's hostname.
+func (l *Link) Host() string {
 	uobj, _ := url.Parse(l.Addr)
 	return uobj.Hostname()
+}
+
+// Link.Root returns the Link's base URL.
+func (l *Link) Root() string {
+	uobj, _ := url.Parse(l.Addr)
+	return fmt.Sprintf("%s://%s", uobj.Scheme, uobj.Hostname())
 }
 
 // 4.3: the List type
@@ -180,8 +179,8 @@ func main() {
 	if *FlagWarm {
 		log.Printf("-warm is true, warming icon cache")
 		for _, link := range MainSite.Icons {
-			log.Printf("downloading icon for %s", link.Base())
-			addr := fmt.Sprintf("%s/favicon.ico", link.Base())
+			log.Printf("downloading icon for %s", link.Host())
+			addr := fmt.Sprintf("%s/favicon.ico", link.Root())
 
 			bytes, err := DownloadURL(addr)
 			if err != nil {
@@ -189,7 +188,7 @@ func main() {
 			}
 
 			CacheMutex.Lock()
-			Cache[link.Hostname()] = bytes
+			Cache[link.Host()] = bytes
 			CacheMutex.Unlock()
 		}
 	}
