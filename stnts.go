@@ -163,7 +163,7 @@ type Site struct {
 
 // GetIndex returns the index page.
 func GetIndex(w http.ResponseWriter, r *http.Request) {
-	tobj, err := tpls.Parse(MainFS, "files/index.html")
+	tobj, err := tpls.Parse(MainFS, "files/_base.html", "files/index.html")
 	if err != nil {
 		resp.Error(w, http.StatusInternalServerError, "template error")
 		log.Printf("error: %s", err)
