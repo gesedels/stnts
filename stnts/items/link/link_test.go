@@ -7,15 +7,24 @@ import (
 )
 
 func mockLink() *Link {
-	return New("https://example.com", "⚪️", "Example")
+	return New("Name", "https://example.com", "⚪️")
 }
 
 func TestNew(t *testing.T) {
 	// success
 	link := mockLink()
+	assert.Equal(t, "Name", link.Name)
 	assert.Equal(t, "https://example.com", link.Addr)
 	assert.Equal(t, "⚪️", link.Icon)
-	assert.Equal(t, "Example", link.Name)
+}
+
+func TestString(t *testing.T) {
+	// setup
+	link := mockLink()
+
+	// success
+	text := link.String()
+	assert.Equal(t, "https://example.com", text)
 }
 
 func TestURL(t *testing.T) {
