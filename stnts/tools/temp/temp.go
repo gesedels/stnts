@@ -1,11 +1,11 @@
-// Package html implements HTML template rendering functions.
-package html
+// Package temp implements template rendering functions.
+package temp
 
 import (
 	"bytes"
-	"embed"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"sync"
 )
 
@@ -16,7 +16,7 @@ var Cache = make(map[string]*template.Template)
 var Mutex = new(sync.Mutex)
 
 // Parse returns a new or cached Template from a filesystem.
-func Parse(fs embed.FS, base, name string) (*template.Template, error) {
+func Parse(fs fs.FS, base, name string) (*template.Template, error) {
 	if _, ok := Cache[name]; !ok {
 		temp, err := template.ParseFS(fs, base, name)
 		if err != nil {
@@ -42,7 +42,7 @@ func Render(temp *template.Template, pipe any) ([]byte, error) {
 }
 
 // RenderFrom returns a rendered Template from a filesystem as a byteslice.
-func RenderFrom(fs embed.FS, base, name string, pipe any) ([]byte, error) {
+func RenderFrom(fs fs.FS, base, name string, pipe any) ([]byte, error) {
 	temp, err := Parse(fs, base, name)
 	if err != nil {
 		return nil, err
