@@ -1,5 +1,5 @@
-// Package templ implements template rendering functions.
-package temp
+// Package tpls implements template rendering functions.
+package tpls
 
 import (
 	"bytes"
@@ -21,13 +21,13 @@ func Parse(fs embed.FS, names ...string) (*template.Template, error) {
 	name := strings.Join(names, "|")
 
 	if _, ok := Cache[name]; !ok {
-		temp, err := template.ParseFS(fs, names...)
+		tobj, err := template.ParseFS(fs, names...)
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse template - %w", err)
 		}
 
 		Mutex.Lock()
-		Cache[name] = temp
+		Cache[name] = tobj
 		Mutex.Unlock()
 	}
 
@@ -35,9 +35,9 @@ func Parse(fs embed.FS, names ...string) (*template.Template, error) {
 }
 
 // Render returns a rendered Template as a byteslice.
-func Render(temp *template.Template, pipe any) ([]byte, error) {
+func Render(tobj *template.Template, pipe any) ([]byte, error) {
 	buff := new(bytes.Buffer)
-	if err := temp.Execute(buff, pipe); err != nil {
+	if err := tobj.Execute(buff, pipe); err != nil {
 		return nil, fmt.Errorf("cannot render template - %w", err)
 	}
 

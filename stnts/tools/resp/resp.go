@@ -2,20 +2,13 @@
 package resp
 
 import (
-	"bytes"
-	"embed"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
-	"sync"
+
+	"github.com/gesedels/stnts/stnts/tools/tpls"
 )
-
-// Cache is a live cache of parsed templates.
-var Cache = make(map[string]*template.Template)
-
-// Mutex is a locking mutex for Cache.
-var Mutex = new(sync.Mutex)
 
 // Error writes a formatted text/plain error message to a ResponseWriter.
 func Error(w http.ResponseWriter, code int, text string, elems ...any) {
@@ -25,29 +18,16 @@ func Error(w http.ResponseWriter, code int, text string, elems ...any) {
 	fmt.Fprintf(w, text, elems...)
 }
 
-// Render caches and writes a text/html Template from a filesystem to a ResponseWriter.
-func Render(w http.ResponseWriter, fs embed.FS, code int, base, name string, pipe any) {
-	if _, ok := Cache[name]; !ok {
-		temp, err := template.ParseFS(fs, base, name)
-		if err != nil {
-			Error(w, http.StatusInternalServerError, "template error")
-			log.Printf("error: cannot parse template %q - %s", name, err)
-			return
-		}
-
-		Mutex.Lock()
-		Cache[name] = temp
-		Mutex.Unlock()
-	}
-
-	buff := bytes.NewBuffer(nil)
-	if err := Cache[name].Execute(buff, pipe); err != nil {
+// HTML writes a rendered HTML template to a ResponseWriter.
+func HTML(w http.ResponseWriter, tobj *template.Template, code int, pipe any) {
+	bytes, err := tpls.Render(tobj, pipe)
+	if err != nil {
 		Error(w, http.StatusInternalServerError, "template error")
-		log.Printf("error: cannot render template %q - %s", name, err)
+		log.Printf("error: %s", err)
 		return
 	}
 
 	w.WriteHeader(code)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write(buff.Bytes())
+	w.Write(bytes)
 }

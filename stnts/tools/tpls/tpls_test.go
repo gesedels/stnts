@@ -1,4 +1,4 @@
-package temp
+package tpls
 
 import (
 	"testing"
@@ -12,18 +12,18 @@ func TestParse(t *testing.T) {
 	clear(Cache)
 
 	// success
-	temp, err := Parse(test.MockFS, "base.html", "main.html")
-	assert.Equal(t, "base.html", temp.Name())
-	assert.Equal(t, temp, Cache["base.html|main.html"])
+	tobj, err := Parse(test.MockFS, "base.html", "main.html")
+	assert.Equal(t, "base.html", tobj.Name())
+	assert.Equal(t, tobj, Cache["base.html|main.html"])
 	assert.NoError(t, err)
 }
 
 func TestRender(t *testing.T) {
 	// setup
-	temp, _ := Parse(test.MockFS, "base.html", "main.html")
+	tobj, _ := Parse(test.MockFS, "base.html", "main.html")
 
 	// success
-	bytes, err := Render(temp, "test")
+	bytes, err := Render(tobj, "test")
 	assert.Equal(t, " pipeline=test \n", string(bytes))
 	assert.NoError(t, err)
 }
