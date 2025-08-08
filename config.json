@@ -1,0 +1,67 @@
+{
+  "conf": {
+    "title": "stnts",
+    "blurb": "Stephen's Tiny New Tab Server",
+    "footer": "Powered by <a href='https://github.com/gesedels/stnts'>stnts</a> (it's open source!).",
+    "timezone": "Australia/Brisbane"
+  },
+
+  "icons": [
+    { "name": "Todoist", "addr": "https://todoist.com/app/today" },
+    { "name": "Fastmail", "addr": "https://www.fastmail.com/mail/" },
+    { "name": "Kobo", "addr": "https://www.kobo.com/au/en/ebooks" },
+    { "name": "Storygraph", "addr": "https://app.thestorygraph.com" },
+    { "name": "Dropout", "addr": "https://www.dropout.tv/browse" },
+    { "name": "Nebula", "addr": "https://nebula.tv" },
+    { "name": "YouTube", "addr": "https://www.youtube.com" },
+    { "name": "YouTube Music", "addr": "https://music.youtube.com" }
+  ],
+
+  "lists": [
+    {
+      "name": "Recipes",
+      "links": [
+        {
+          "name": "Tomato and spinach fettuccine",
+          "from": "Taste",
+          "addr": "https://www.taste.com.au/recipes/tomato-spinach-fettuccine/463a2309-14e0-499a-b771-55901073cbd2"
+        },
+        {
+          "name": "Vegan One Pot Pasta Recipe",
+          "from": "Woolworths",
+          "addr": "https://www.woolworths.com.au/shop/recipes/vegan-one-pot-pasta"
+        },
+        {
+          "name": "Sweet Potato Black Bean Skillet",
+          "from": "Budget Bytes",
+          "addr": "https://www.budgetbytes.com/sweet-potato-black-bean-skillet/"
+        },
+        {
+          "name": "How To Make Soft Boiled Eggs",
+          "from": "Budget Bytes",
+          "addr": "https://www.budgetbytes.com/make-soft-boiled-eggs/"
+        },
+        {
+          "name": "Beef and Cabbage Stir Fry",
+          "from": "Budget Bytes",
+          "addr": "https://www.budgetbytes.com/beef-cabbage-stir-fry/"
+        },
+        {
+          "name": "Roasted Vegetables",
+          "from": "RecipeTin Eats",
+          "addr": "https://www.recipetineats.com/roasted-vegetables/"
+        },
+        {
+          "name": "Sausage Bake with Potatoes and Gravy",
+          "from": "RecipeTin Eats",
+          "addr": "https://www.recipetineats.com/one-pan-sausage-and-vegetable-bake-with-gravy/"
+        },
+        {
+          "name": "The Burger I Never Make for Guests",
+          "from": "YouTube",
+          "addr": "https://www.youtube.com/watch?v=N8I_S9Dv0Kg"
+        }
+      ]
+    }
+  ]
+}
