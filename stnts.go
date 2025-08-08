@@ -34,11 +34,14 @@ var (
 	FlagWarm = FlagSet.Bool("warm", false, "warm icon cache before start")
 )
 
-// 1.2: global configuration variables
-///////////////////////////////////////
+// 1.2: global content variables
+/////////////////////////////////
 
 // MainSite is the global Site configuration object.
 var MainSite = new(Site)
+
+// MainTemp is the global Template object.
+var MainTemp = template.Must(template.ParseFiles("template.html"))
 
 // 1.3: global cache variables
 ///////////////////////////////
@@ -174,6 +177,27 @@ type Site struct {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
+//                            part six · handler functions                           //
+///////////////////////////////////////////////////////////////////////////////////////
+
+// GetIndex returns the index page.
+func GetIndex(w http.ResponseWriter, r *http.Request) {
+	WriteHTML(w, http.StatusOK, MainTemp, MainSite)
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+//                         part seven · middleware functions                         //
+///////////////////////////////////////////////////////////////////////////////////////
+
+// LoggingWare wraps a HandlerFunc in middleware to log every incoming request.
+func LoggingWare(hfun http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL.Path)
+		hfun(w, r)
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
 //                             part ??? · main functions                             //
 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -219,5 +243,16 @@ func main() {
 			Cache[link.Host()] = bytes
 			CacheMutex.Unlock()
 		}
+	}
+
+	// Configure muxer.
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /", LoggingWare(GetIndex))
+
+	// Configure and run server.
+	srv := &http.Server{Addr: *FlagAddr, Handler: mux}
+	log.Printf("now serving stnts on %s", srv.Addr)
+	if err := srv.ListenAndServe(); err != nil {
+		log.Fatalf("server failed - %s", err)
 	}
 }
