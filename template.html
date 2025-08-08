@@ -6,7 +6,7 @@
         <style>
             :root {
                 --border: light-dark(#000, #fff);
-                --footer-fg: light-dark(#777, #aaa);
+                --grey: light-dark(#777, #aaa);
                 --header-bg: light-dark(DarkSeaGreen, DarkGreen);
                 --header-fg: light-dark(#333, #fff);
             }
@@ -61,8 +61,12 @@
                 height: auto;
             }
 
+            .from {
+                color: var(--grey);
+            }
+
             footer {
-                color: var(--footer-fg);
+                color: var(--grey);
                 text-align: center;
             }
 
@@ -126,7 +130,11 @@
                             {{ range .Links }}
                                 <li>
                                     <a href="{{ .Addr }}">{{ .Name }}</a>
-                                    {{ if .From }} from {{ .From }} {{ end }}
+                                    {{ if .From }}
+                                        <span class="from">
+                                            from {{ .From }}
+                                        </span>
+                                    {{ end }}
                                 </li>
                             {{ end }}
                         </ul>
