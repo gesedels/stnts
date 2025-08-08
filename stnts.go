@@ -5,7 +5,10 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -40,6 +43,46 @@ var MainMux *http.ServeMux
 
 // MainServer is the default system server.
 var MainServer *http.Server
+
+///////////////////////////////////////////////////////////////////////////////////////
+//                       part two · file and download functions                      //
+///////////////////////////////////////////////////////////////////////////////////////
+
+// DownloadURL returns a URL's contents as a byteslice.
+func DownloadURL(addr string) ([]byte, error) {
+	resp, err := http.Get(addr)
+	switch {
+	case err != nil:
+		return nil, fmt.Errorf("cannot download %q - %w", addr, err)
+	case resp.StatusCode != http.StatusOK:
+		return nil, fmt.Errorf("cannot download %q - status %d", addr, resp.StatusCode)
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
+// DownloadURLs returns the first valid URL's contents as a byteslice.
+func DownloadURLs(root string, names ...string) ([]byte, error) {
+	for _, name := range names {
+		addr := fmt.Sprintf("https://%s/%s", root, name)
+		bytes, err := DownloadURL(addr)
+		if err == nil {
+			return bytes, nil
+		}
+	}
+
+	return nil, fmt.Errorf("cannot download from %q - no accessible URLs", root)
+}
+
+// ReadJSON unmarshals a JSON file into an object.
+func ReadJSON(orig string, data any) error {
+	bytes, err := os.ReadFile(orig)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(bytes, data)
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //                             part ??? · main functions                             //
