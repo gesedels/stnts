@@ -5,21 +5,10 @@
 package main
 
 import (
-	"embed"
-	"encoding/json"
 	"flag"
-	"fmt"
-	"html/template"
-	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
-	"path/filepath"
-	"time"
-
-	"github.com/gesedels/stnts/stnts/tools/resp"
-	"github.com/gesedels/stnts/stnts/tools/tpls"
 )
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -29,264 +18,56 @@ import (
 // 1.1: command-line flags
 ///////////////////////////
 
-// FlagSet is the system command-line flag parser.
-var FlagSet = flag.NewFlagSet("stnts", flag.ExitOnError)
+// MainFlags is the default command-line flag parser.
+var MainFlags = flag.NewFlagSet("stnts", flag.ExitOnError)
 
+// Defined command-line flags.
 var (
-	FlagAddr = FlagSet.String("addr", "localhost:8000", "host:port to listen on")
-	FlagDbug = FlagSet.Bool("dbug", false, "enable debug mode")
-	FlagConf = FlagSet.String("conf", "", "configuration file to use")
-	FlagLogs = FlagSet.String("logs", "", "file to write logs to")
+	FlagAddr  = MainFlags.String("addr", "localhost:8000", "host:port address")
+	FlagCache = MainFlags.String("cache", "./cache", "cache folder")
+	FlagConf  = MainFlags.String("conf", "", "configuration file")
+	FlagDebug = MainFlags.Bool("debug", false, "enable debug mode")
 )
 
-// 1.2: global content variables
-/////////////////////////////////
-
-// MainFS is the global asset filesystem object.
-//
-//go:embed files/*
-var MainFS embed.FS
-
-// MainSite is the global Site configuration object.
-var MainSite = new(Site)
-
-// 1.3: global cache variables
+// 1.2: main control variables
 ///////////////////////////////
 
-// Cache is a global map of downloaded external icons.
-var Cache = make(map[string][]byte)
+// MainLogs is the default system logger.
+var MainLogs *log.Logger
 
-///////////////////////////////////////////////////////////////////////////////////////
-//                           part two · json file functions                          //
-///////////////////////////////////////////////////////////////////////////////////////
+// MainMux is the default server handler mux.
+var MainMux *http.ServeMux
 
-// ReadJSON unmarshals a JSON file into an object.
-func ReadJSON(orig string, data any) error {
-	bytes, err := os.ReadFile(orig)
-	if err != nil {
-		return err
-	}
-
-	return json.Unmarshal(bytes, data)
-}
-
-// WriteJSON marshals an object into a JSON file.
-func WriteJSON(dest string, data any) error {
-	bytes, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(dest, bytes, 0666)
-}
-
-///////////////////////////////////////////////////////////////////////////////////////
-//                     part three · cache and download functions                     //
-///////////////////////////////////////////////////////////////////////////////////////
-
-// DownloadURL returns the contents of a URL as a byteslice.
-func DownloadURL(addr string) ([]byte, error) {
-	resp, err := http.Get(addr)
-	switch {
-	case err != nil:
-		return nil, err
-	case resp.StatusCode != http.StatusOK:
-		return nil, fmt.Errorf("download %s failed with %d", addr, resp.StatusCode)
-	}
-
-	return io.ReadAll(resp.Body)
-}
-
-///////////////////////////////////////////////////////////////////////////////////////
-//                        part four · http response functions                        //
-///////////////////////////////////////////////////////////////////////////////////////
-
-///////////////////////////////////////////////////////////////////////////////////////
-//                        part five · configuration data types                       //
-///////////////////////////////////////////////////////////////////////////////////////
-
-// 4.1: the Conf type
-//////////////////////
-
-// Conf is a single configuration map.
-type Conf struct {
-	Title    string        `json:"title"`
-	Blurb    string        `json:"blurb"`
-	Footer   template.HTML `json:"footer"`
-	TimeZone string        `json:"timezone"`
-	Now      time.Time     `json:"-"`
-}
-
-// 4.2: the Link type
-//////////////////////
-
-// Link is a single named website link.
-type Link struct {
-	Name string `json:"name"`
-	From string `json:"from"`
-	Addr string `json:"addr"`
-}
-
-// Link.Host returns the Link's hostname.
-func (l *Link) Host() string {
-	uobj, _ := url.Parse(l.Addr)
-	return uobj.Hostname()
-}
-
-// Link.Root returns the Link's base URL.
-func (l *Link) Root() string {
-	uobj, _ := url.Parse(l.Addr)
-	return fmt.Sprintf("%s://%s", uobj.Scheme, uobj.Hostname())
-}
-
-// 4.3: the List type
-//////////////////////
-
-// List is a single ordered list of Links.
-type List struct {
-	Name  string  `json:"name"`
-	Links []*Link `json:"links"`
-}
-
-// 4.3: the Site type
-//////////////////////
-
-// Site is a complete container of configuration and content data.
-type Site struct {
-	Conf  *Conf   `json:"conf"`
-	Icons []*Link `json:"icons"`
-	Lists []*List `json:"lists"`
-}
-
-///////////////////////////////////////////////////////////////////////////////////////
-//                            part six · handler functions                           //
-///////////////////////////////////////////////////////////////////////////////////////
-
-// GetIndex returns the index page.
-func GetIndex(w http.ResponseWriter, r *http.Request) {
-	tobj, err := tpls.Parse(MainFS, "files/_base.html", "files/index.html")
-	if err != nil {
-		resp.Error(w, http.StatusInternalServerError, "template error")
-		log.Printf("error: %s", err)
-		return
-	}
-
-	resp.HTML(w, tobj, http.StatusOK, MainSite)
-}
-
-// GetCSS returns an embedded CSS file.
-func GetCSS(w http.ResponseWriter, r *http.Request) {
-	name := r.PathValue("file")
-	path := filepath.Join("files/css", name)
-	bytes, err := MainFS.ReadFile(path)
-	if err != nil {
-		resp.Error(w, http.StatusNotFound, "css file %q not found", name)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/css")
-	w.WriteHeader(http.StatusOK)
-	w.Write(bytes)
-}
-
-// GetIcon returns a new or cached icon.
-func GetIcon(w http.ResponseWriter, r *http.Request) {
-	host := r.PathValue("host")
-	if _, ok := Cache[host]; !ok {
-		resp.Error(w, http.StatusNotFound, "cannot find remote icon")
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "image/x-icon")
-	w.Write(Cache[host])
-}
-
-///////////////////////////////////////////////////////////////////////////////////////
-//                         part seven · middleware functions                         //
-///////////////////////////////////////////////////////////////////////////////////////
-
-// DebugWare wraps a HandlerFunc in middleware to perform debug actions.
-func DebugWare(hfun http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if *FlagDbug {
-			log.Print("debug true - clearing template cache")
-			clear(tpls.Cache)
-		}
-
-		hfun(w, r)
-	}
-}
-
-// LoggingWare wraps a HandlerFunc in middleware to log every incoming request.
-func LoggingWare(hfun http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL.Path)
-		hfun(w, r)
-	}
-}
+// MainServer is the default system server.
+var MainServer *http.Server
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //                             part ??? · main functions                             //
 ///////////////////////////////////////////////////////////////////////////////////////
 
+// init initialises the stnts program before start.
+func init() {
+	// Parse command-line flags.
+	MainFlags.Parse(os.Args[1:])
+
+	// Initialise MainLogs and print configuration.
+	MainLogs = log.New(os.Stdout, "", log.LstdFlags)
+	MainLogs.Printf("-addr=%q", *FlagAddr)
+	MainLogs.Printf("-cache=%q", *FlagCache)
+	MainLogs.Printf("-conf=%q", *FlagConf)
+	MainLogs.Printf("-debug is %t", *FlagDebug)
+
+	// Initialise MainMux.
+	MainMux = http.NewServeMux()
+
+	// Initialise MainServer.
+	MainServer = &http.Server{Addr: *FlagAddr, Handler: MainMux}
+}
+
 // main runs the main stnts program.
 func main() {
-	// Parse command-line flags.
-	FlagSet.Parse(os.Args[1:])
-
-	// Configure system logging.
-	if *FlagLogs != "" {
-		file, err := os.Open(*FlagLogs)
-		if err != nil {
-			log.Fatalf("cannot open logfile %s - %s", *FlagLogs, err)
-		}
-
-		defer file.Close()
-		log.Printf("setting logfile to %s", *FlagLogs)
-		log.SetOutput(file)
-	} else {
-		log.Printf("setting logfile to STDOUT")
-		log.SetOutput(os.Stdout)
-	}
-
-	// Parse configuration file.
-	log.Printf("parsing configuration file %s", *FlagConf)
-	if err := ReadJSON(*FlagConf, MainSite); err != nil {
-		log.Fatalf("cannot read configuration file %s - %s", *FlagConf, err)
-	}
-
-	// Configure time zone.
-	log.Printf("configuration timezone %s", MainSite.Conf.TimeZone)
-	loca, err := time.LoadLocation(MainSite.Conf.TimeZone)
-	if err != nil {
-		log.Fatalf("cannot determine timezone - %s", err)
-	}
-
-	MainSite.Conf.Now = time.Now().In(loca)
-
-	// Prepare cache with downloaded icons.
-	log.Printf("preparing icon cache")
-	for _, link := range MainSite.Icons {
-		addr := fmt.Sprintf("%s/favicon.ico", link.Root())
-		bytes, err := DownloadURL(addr)
-		if err != nil {
-			log.Printf("cannot download icon for %s - %s", addr, err)
-		}
-
-		Cache[link.Host()] = bytes
-	}
-
-	// Configure muxer.
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /", DebugWare(LoggingWare(GetIndex)))
-	mux.HandleFunc("GET /icon/{host...}", LoggingWare(GetIcon))
-	mux.HandleFunc("GET /css/{file...}", LoggingWare(GetCSS))
-
-	// Configure and run server.
-	srv := &http.Server{Addr: *FlagAddr, Handler: mux}
-	log.Printf("now serving stnts on %s", srv.Addr)
-	if err := srv.ListenAndServe(); err != nil {
-		log.Fatalf("server failed - %s", err)
+	MainLogs.Printf("starting server on %q", *FlagAddr)
+	if err := MainServer.ListenAndServe(); err != nil {
+		MainLogs.Fatal(err)
 	}
 }
