@@ -2,9 +2,15 @@
 package test
 
 import (
+	"embed"
 	"io"
 	"net/http/httptest"
 )
+
+// MockFS is an embedded filesystem containing mock assets.
+//
+//go:embed *.*
+var MockFS embed.FS
 
 // Response returns the status code and body string from a ResponseRecorder.
 func Response(w *httptest.ResponseRecorder) (int, string) {
