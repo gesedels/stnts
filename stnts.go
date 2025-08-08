@@ -5,13 +5,18 @@
 package main
 
 import (
+	"bytes"
+	"embed"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -48,6 +53,14 @@ var Server *http.Server
 // 1.3: main storage variables
 ///////////////////////////////
 
+// MainFS is the global embedded asset filesystem.
+//
+//go:embed files/**/*
+var MainFS embed.FS
+
+// Site is the global site configuration object.
+var MainSite *Site
+
 // IconCache is the global icon file cache map.
 var IconCache map[string][]byte
 
@@ -62,6 +75,12 @@ var IconTypes = []string{
 	"favicon.svg",
 	"favicon.ico",
 }
+
+// TemplateCache is a live cache of parsed templates.
+var TemplateCache = make(map[string]*template.Template)
+
+// TemplateCacheLock is a write-locking mutex for Cache.
+var TemplateCacheLock = new(sync.Mutex)
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //                       part two · file and download functions                      //
@@ -106,6 +125,38 @@ func ReadJSON(orig string, data any) error {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
+//                      part ??? · template rendering functions                      //
+///////////////////////////////////////////////////////////////////////////////////////
+
+// Parse returns a new or cached Template from FS.
+func Parse(names ...string) (*template.Template, error) {
+	name := strings.Join(names, "|")
+
+	if _, ok := TemplateCache[name]; !ok {
+		tobj, err := template.ParseFS(MainFS, names...)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse template - %w", err)
+		}
+
+		TemplateCacheLock.Lock()
+		TemplateCache[name] = tobj
+		TemplateCacheLock.Unlock()
+	}
+
+	return TemplateCache[name], nil
+}
+
+// Render returns a rendered Template as a byteslice.
+func Render(tobj *template.Template, pipe any) ([]byte, error) {
+	buff := new(bytes.Buffer)
+	if err := tobj.Execute(buff, pipe); err != nil {
+		return nil, fmt.Errorf("cannot render template - %w", err)
+	}
+
+	return buff.Bytes(), nil
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
 //                         part ??? · http response functions                        //
 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -117,9 +168,92 @@ func WriteError(w http.ResponseWriter, code int, text string, elems ...any) {
 	fmt.Fprintf(w, text, elems...)
 }
 
+// WriteTemplate writes a rendered HTML Template to a ResponseWriter.
+func WriteTemplate(w http.ResponseWriter, code int, tobj *template.Template, pipe any) {
+	buff := new(bytes.Buffer)
+	if err := tobj.Execute(buff, pipe); err != nil {
+		WriteError(w, http.StatusInternalServerError, "template error")
+		Log.Printf("error: %s", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(code)
+	w.Write(buff.Bytes())
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+//                        part five · configuration data types                       //
+///////////////////////////////////////////////////////////////////////////////////////
+
+// 4.1: the Conf type
+//////////////////////
+
+// Conf is a single configuration map.
+type Conf struct {
+	Title    string        `json:"title"`
+	Blurb    string        `json:"blurb"`
+	Footer   template.HTML `json:"footer"`
+	TimeZone string        `json:"timezone"`
+	Now      time.Time     `json:"-"`
+}
+
+// 4.2: the Link type
+//////////////////////
+
+// Link is a single named website link.
+type Link struct {
+	Name string `json:"name"`
+	From string `json:"from"`
+	Addr string `json:"addr"`
+}
+
+// Link.Host returns the Link's hostname.
+func (l *Link) Host() string {
+	uobj, _ := url.Parse(l.Addr)
+	return uobj.Hostname()
+}
+
+// Link.Root returns the Link's base URL.
+func (l *Link) Root() string {
+	uobj, _ := url.Parse(l.Addr)
+	return fmt.Sprintf("%s://%s", uobj.Scheme, uobj.Hostname())
+}
+
+// 4.3: the List type
+//////////////////////
+
+// List is a single ordered list of Links.
+type List struct {
+	Name  string  `json:"name"`
+	Links []*Link `json:"links"`
+}
+
+// 4.3: the Site type
+//////////////////////
+
+// Site is a complete container of configuration and content data.
+type Site struct {
+	Conf  *Conf   `json:"conf"`
+	Icons []*Link `json:"icons"`
+	Lists []*List `json:"lists"`
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////
 //                            part ??? · handler functions                           //
 ///////////////////////////////////////////////////////////////////////////////////////
+
+// GetIndex returns the index page template.
+func GetIndex(w http.ResponseWriter, r *http.Request) {
+	tobj, err := Parse("files/html/_base.html", "files/html/index.html")
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "template error")
+		Log.Printf("error: %s", err)
+		return
+	}
+
+	WriteTemplate(w, http.StatusOK, tobj, MainSite)
+}
 
 // GetIcon returns a new or cached remote icon file.
 func GetIcon(w http.ResponseWriter, r *http.Request) {
@@ -166,6 +300,7 @@ func init() {
 	// Initialise control variables.
 	Log = log.New(os.Stdout, "", log.LstdFlags)
 	Mux = http.NewServeMux()
+	MainSite = new(Site)
 	Server = &http.Server{Addr: *FlagAddr, Handler: Mux}
 
 	// Initialise content variables.
@@ -173,7 +308,17 @@ func init() {
 	IconCacheLock = new(sync.Mutex)
 
 	// Register handler routes.
+	Mux.HandleFunc("GET /", LoggingWare(GetIndex))
 	Mux.HandleFunc("GET /icon/{host...}", LoggingWare(GetIcon))
+
+	// Parse site configuration.
+	if err := ReadJSON(*FlagConf, MainSite); err != nil {
+		Log.Fatalf("error: %s", err)
+	}
+
+	// Configure time zone.
+	loca, _ := time.LoadLocation(MainSite.Conf.TimeZone)
+	MainSite.Conf.Now = time.Now().In(loca)
 }
 
 // main runs the main stnts program.
