@@ -44,16 +44,20 @@ main {
     justify-content: space-around;
     flex-wrap: wrap;
     gap: 1rem;
+    margin: 1rem 0;
 }
 
 .icon-item {
+    padding: 0.25rem;
     min-width: 20%;
     text-align: center;
 }
 
 .icon-img {
-    max-width: 100%;
-    height: auto;
+    display: block;
+    font-size: 2rem;
+    padding: 0.5rem;
+    text-decoration: none;
 }
 
 .lists {
