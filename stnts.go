@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"sync"
 	"time"
 )
 
@@ -33,7 +32,6 @@ var (
 	FlagDbug = FlagSet.Bool("dbug", false, "enable debug mode")
 	FlagConf = FlagSet.String("conf", "", "configuration file to use")
 	FlagLogs = FlagSet.String("logs", "", "file to write logs to")
-	FlagWarm = FlagSet.Bool("warm", false, "warm icon cache before start")
 )
 
 // 1.2: global content variables
@@ -50,9 +48,6 @@ var MainTemp = template.Must(template.ParseFiles("template.html"))
 
 // Cache is a global map of downloaded external icons.
 var Cache = make(map[string][]byte)
-
-// CacheMutex is the global mutex for writing to the Cache.
-var CacheMutex = new(sync.Mutex)
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //                           part two · json file functions                          //
@@ -188,6 +183,17 @@ func GetIndex(w http.ResponseWriter, r *http.Request) {
 	WriteHTML(w, http.StatusOK, MainTemp, MainSite)
 }
 
+// GetIcon returns a new or cached icon.
+func GetIcon(w http.ResponseWriter, r *http.Request) {
+	host := r.PathValue("host")
+	if _, ok := Cache[host]; !ok {
+		WriteError(w, http.StatusNotFound, "cannot find remote icon")
+		return
+	}
+
+	WriteFromCache(w, http.StatusOK, host, "image/x-icon")
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////
 //                         part seven · middleware functions                         //
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -251,27 +257,22 @@ func main() {
 
 	MainSite.Conf.Now = time.Now().In(loca)
 
-	// Warm cache if -warm is true.
-	if *FlagWarm {
-		log.Printf("-warm is true, warming icon cache")
-		for _, link := range MainSite.Icons {
-			log.Printf("downloading icon for %s", link.Host())
-			addr := fmt.Sprintf("%s/favicon.ico", link.Root())
-
-			bytes, err := DownloadURL(addr)
-			if err != nil {
-				log.Printf("cannot download icon for %s - %s", addr, err)
-			}
-
-			CacheMutex.Lock()
-			Cache[link.Host()] = bytes
-			CacheMutex.Unlock()
+	// Prepare cache with downloaded icons.
+	log.Printf("preparing icon cache")
+	for _, link := range MainSite.Icons {
+		addr := fmt.Sprintf("%s/favicon.ico", link.Root())
+		bytes, err := DownloadURL(addr)
+		if err != nil {
+			log.Printf("cannot download icon for %s - %s", addr, err)
 		}
+
+		Cache[link.Host()] = bytes
 	}
 
 	// Configure muxer.
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", DebugWare(LoggingWare(GetIndex)))
+	mux.HandleFunc("GET /icon/{host...}", LoggingWare(GetIcon))
 
 	// Configure and run server.
 	srv := &http.Server{Addr: *FlagAddr, Handler: mux}
