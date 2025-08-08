@@ -12,8 +12,8 @@ import (
 
 // Error writes a formatted text/plain error message to a ResponseWriter.
 func Error(w http.ResponseWriter, code int, text string, elems ...any) {
-	w.WriteHeader(code)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(code)
 	text = fmt.Sprintf("error %d: %s", code, text)
 	fmt.Fprintf(w, text, elems...)
 }
@@ -27,7 +27,7 @@ func HTML(w http.ResponseWriter, tobj *template.Template, code int, pipe any) {
 		return
 	}
 
-	w.WriteHeader(code)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(code)
 	w.Write(bytes)
 }

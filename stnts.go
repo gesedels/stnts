@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/gesedels/stnts/stnts/tools/resp"
@@ -173,6 +174,21 @@ func GetIndex(w http.ResponseWriter, r *http.Request) {
 	resp.HTML(w, tobj, http.StatusOK, MainSite)
 }
 
+// GetCSS returns an embedded CSS file.
+func GetCSS(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("file")
+	path := filepath.Join("files/css", name)
+	bytes, err := MainFS.ReadFile(path)
+	if err != nil {
+		resp.Error(w, http.StatusNotFound, "css file %q not found", name)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/css")
+	w.WriteHeader(http.StatusOK)
+	w.Write(bytes)
+}
+
 // GetIcon returns a new or cached icon.
 func GetIcon(w http.ResponseWriter, r *http.Request) {
 	host := r.PathValue("host")
@@ -265,6 +281,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", DebugWare(LoggingWare(GetIndex)))
 	mux.HandleFunc("GET /icon/{host...}", LoggingWare(GetIcon))
+	mux.HandleFunc("GET /css/{file...}", LoggingWare(GetCSS))
 
 	// Configure and run server.
 	srv := &http.Server{Addr: *FlagAddr, Handler: mux}
