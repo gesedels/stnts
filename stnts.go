@@ -11,7 +11,6 @@ import (
 	"flag"
 	"fmt"
 	"html/template"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -61,21 +60,6 @@ var MainFS embed.FS
 // Site is the global site configuration object.
 var MainSite *Site
 
-// IconCache is the global icon file cache map.
-var IconCache map[string][]byte
-
-// IconCacheLock is the global mutex for IconCache.
-var IconCacheLock *sync.Mutex
-
-// IconTypes is a list of valid icon filenames.
-var IconTypes = []string{
-	"apple-touch-icon.png",
-	"apple-touch-icon-180x180.png",
-	"favicon.png",
-	"favicon.svg",
-	"favicon.ico",
-}
-
 // TemplateCache is a live cache of parsed templates.
 var TemplateCache = make(map[string]*template.Template)
 
@@ -85,34 +69,6 @@ var TemplateCacheLock = new(sync.Mutex)
 ///////////////////////////////////////////////////////////////////////////////////////
 //                       part two · file and download functions                      //
 ///////////////////////////////////////////////////////////////////////////////////////
-
-// DownloadURL returns a URL's contents as a byteslice.
-func DownloadURL(addr string) ([]byte, error) {
-	client := &http.Client{Timeout: time.Second}
-	resp, err := client.Get(addr)
-	switch {
-	case err != nil:
-		return nil, fmt.Errorf("cannot download %q - %w", addr, err)
-	case resp.StatusCode != http.StatusOK:
-		return nil, fmt.Errorf("cannot download %q - status %d", addr, resp.StatusCode)
-	}
-
-	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
-}
-
-// DownloadURLs returns the first valid URL's contents as a byteslice.
-func DownloadURLs(host string, names ...string) ([]byte, error) {
-	for _, name := range names {
-		addr := fmt.Sprintf("https://%s/%s", host, name)
-		bytes, err := DownloadURL(addr)
-		if err == nil {
-			return bytes, nil
-		}
-	}
-
-	return nil, fmt.Errorf("cannot download from %q - no accessible URLs", host)
-}
 
 // ReadJSON unmarshals a JSON file into an object.
 func ReadJSON(orig string, data any) error {
@@ -203,6 +159,7 @@ type Conf struct {
 
 // Link is a single named website link.
 type Link struct {
+	Icon string `json:"icon"`
 	Name string `json:"name"`
 	From string `json:"from"`
 	Addr string `json:"addr"`
@@ -255,27 +212,6 @@ func GetIndex(w http.ResponseWriter, r *http.Request) {
 	WriteTemplate(w, http.StatusOK, tobj, MainSite)
 }
 
-// GetIcon returns a new or cached remote icon file.
-func GetIcon(w http.ResponseWriter, r *http.Request) {
-	host := r.PathValue("host")
-	if _, ok := IconCache[host]; !ok {
-		bytes, err := DownloadURLs(host, IconTypes...)
-		if err != nil {
-			WriteError(w, http.StatusNotFound, "%q icon not found", host)
-			return
-		}
-
-		IconCacheLock.Lock()
-		IconCache[host] = bytes
-		IconCacheLock.Unlock()
-	}
-
-	mime := http.DetectContentType(IconCache[host])
-	w.Header().Set("Content-Type", mime)
-	w.WriteHeader(http.StatusOK)
-	w.Write(IconCache[host])
-}
-
 ///////////////////////////////////////////////////////////////////////////////////////
 //                          part ??? · middleware functions                          //
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -303,13 +239,8 @@ func init() {
 	MainSite = new(Site)
 	Server = &http.Server{Addr: *FlagAddr, Handler: Mux}
 
-	// Initialise content variables.
-	IconCache = make(map[string][]byte)
-	IconCacheLock = new(sync.Mutex)
-
 	// Register handler routes.
 	Mux.HandleFunc("GET /", LoggingWare(GetIndex))
-	Mux.HandleFunc("GET /icon/{host...}", LoggingWare(GetIcon))
 
 	// Parse site configuration.
 	if err := ReadJSON(*FlagConf, MainSite); err != nil {

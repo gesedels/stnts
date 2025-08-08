@@ -3,11 +3,7 @@
     <div class="icons">
         {{ range .Icons }}
             <div class="icon-item">
-                <div class="icon-img">
-                    <a href="{{ .Addr }}">
-                        <img src="/icon/{{ .Host }}">
-                    </a>
-                </div>
+                <a class="icon-img" href="{{ .Addr }}">{{ .Icon }}</a>
                 <a href="{{ .Addr }}">{{ .Name }}</a>
             </div>
         {{ end }}

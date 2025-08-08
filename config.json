@@ -7,14 +7,38 @@
   },
 
   "icons": [
-    { "name": "Todoist", "addr": "https://todoist.com/app/today" },
-    { "name": "Fastmail", "addr": "https://www.fastmail.com/mail/" },
-    { "name": "Kobo", "addr": "https://www.kobo.com/au/en/ebooks" },
-    { "name": "Storygraph", "addr": "https://app.thestorygraph.com" },
-    { "name": "Dropout", "addr": "https://www.dropout.tv/browse" },
-    { "name": "Nebula", "addr": "https://nebula.tv" },
-    { "name": "YouTube", "addr": "https://www.youtube.com" },
-    { "name": "YouTube Music", "addr": "https://music.youtube.com" }
+    {
+      "icon": "✅",
+      "name": "Todoist",
+      "addr": "https://todoist.com/app/today"
+    },
+    {
+      "icon": "✉️",
+      "name": "Fastmail",
+      "addr": "https://www.fastmail.com/mail/"
+    },
+    {
+      "icon": "📚",
+      "name": "Kobo",
+      "addr": "https://www.kobo.com/au/en/ebooks"
+    },
+    {
+      "icon": "📓",
+      "name": "Storygraph",
+      "addr": "https://app.thestorygraph.com"
+    },
+    {
+      "icon": "🟡",
+      "name": "Dropout",
+      "addr": "https://www.dropout.tv/browse"
+    },
+    { "icon": "⭐️", "name": "Nebula", "addr": "https://nebula.tv" },
+    { "icon": "📺", "name": "YouTube", "addr": "https://www.youtube.com" },
+    {
+      "icon": "🥁",
+      "name": "YouTube Music",
+      "addr": "https://music.youtube.com"
+    }
   ],
 
   "lists": [
