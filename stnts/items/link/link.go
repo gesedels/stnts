@@ -1,7 +1,9 @@
 // Package link implements the Link type and methods.
 package link
 
-import "net/url"
+import (
+	"net/url"
+)
 
 // Link is a single web address with a name and icon.
 type Link struct {

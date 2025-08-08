@@ -1,7 +1,9 @@
 // Package list implements the List type and methods.
 package list
 
-import "github.com/gesedels/stnts/stnts/items/link"
+import (
+	"github.com/gesedels/stnts/stnts/items/link"
+)
 
 // List is a single ordered list of Links.
 type List struct {
