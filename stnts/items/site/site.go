@@ -2,6 +2,9 @@
 package site
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/gesedels/stnts/stnts/items/conf"
@@ -19,6 +22,21 @@ type Site struct {
 // New returns a new Site.
 func New(conf *conf.Conf, icons []*link.Link, lists []*list.List) *Site {
 	return &Site{conf, icons, lists}
+}
+
+// Parse returns a new Site from a parsed JSON file.
+func Parse(orig string) (*Site, error) {
+	bytes, err := os.ReadFile(orig)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read file %q - %w", orig, err)
+	}
+
+	site := new(Site)
+	if err := json.Unmarshal(bytes, site); err != nil {
+		return nil, fmt.Errorf("cannot parse file %q - %w", orig, err)
+	}
+
+	return site, nil
 }
 
 // Now returns the current time in the Site's configured timezone.

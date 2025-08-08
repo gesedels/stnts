@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/gesedels/stnts/stnts/items/site"
-	"github.com/gesedels/stnts/stnts/tools/file"
 	"github.com/gesedels/stnts/stnts/tools/resp"
 	"github.com/gesedels/stnts/stnts/tools/temp"
 	"github.com/gesedels/stnts/stnts/tools/ware"
@@ -57,12 +56,12 @@ func main() {
 	mux.HandleFunc("GET /", ware.Wrap(GetIndex))
 	mux.HandleFunc("GET /css/{name...}", ware.Wrap(GetCSS))
 
-	// TODO: Add site.Parse to parse JSON files into Sites.
-	MainSite = new(site.Site)
-	if err := file.ReadJSON(*conf, MainSite); err != nil {
+	site, err := site.Parse(*conf)
+	if err != nil {
 		log.Fatalf("error: %s", err)
 	}
 
+	MainSite = site
 	srv := &http.Server{Addr: *addr, Handler: mux}
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)

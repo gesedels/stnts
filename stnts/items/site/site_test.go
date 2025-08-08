@@ -24,6 +24,10 @@ func TestNew(t *testing.T) {
 	assert.NotNil(t, site.Lists)
 }
 
+func TestParse(t *testing.T) {
+	// todo
+}
+
 func TestNow(t *testing.T) {
 	// setup
 	site := mockSite()
