@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,4 +29,12 @@ func TestNewRequest(t *testing.T) {
 	assert.Equal(t, "GET", r.Method)
 	assert.Equal(t, "/", r.URL.Path)
 	assert.Equal(t, "test", string(bytes))
+}
+
+func TestTempFile(t *testing.T) {
+	// success
+	orig := TempFile(t, "test.txt", "test\n")
+	bytes, err := os.ReadFile(orig)
+	assert.Equal(t, "test\n", string(bytes))
+	assert.NoError(t, err)
 }

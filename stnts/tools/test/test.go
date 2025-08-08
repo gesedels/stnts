@@ -7,7 +7,10 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
+	"testing"
 )
 
 // MockFS is an embedded filesystem containing mock files.
@@ -31,4 +34,15 @@ func NewRequest(path, body string) *http.Request {
 	buff := bytes.NewBufferString(body)
 	meth, path, _ := strings.Cut(path, " ")
 	return httptest.NewRequest(meth, path, buff)
+}
+
+// TempFile returns the path to a temporary file containing a string.
+func TempFile(t *testing.T, base, body string) string {
+	dire := t.TempDir()
+	dest := filepath.Join(dire, base)
+	if err := os.WriteFile(dest, []byte(body), 0666); err != nil {
+		panic(err)
+	}
+
+	return dest
 }

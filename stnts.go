@@ -16,7 +16,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"github.com/gesedels/stnts/stnts/items/site"
 )
@@ -38,19 +37,7 @@ var (
 	FlagDebug = Flags.Bool("debug", false, "enable debug mode")
 )
 
-// 1.2: main control variables
-///////////////////////////////
-
-// Log is the global system logger.
-var Log *log.Logger
-
-// Mux is the global server handler mux.
-var Mux *http.ServeMux
-
-// Server is the global system server.
-var Server *http.Server
-
-// 1.3: main storage variables
+// 1.2: main storage variables
 ///////////////////////////////
 
 // MainFS is the global embedded asset filesystem.
@@ -60,12 +47,6 @@ var MainFS embed.FS
 
 // Site is the global site configuration object.
 var MainSite *site.Site
-
-// TemplateCache is a live cache of parsed templates.
-var TemplateCache = make(map[string]*template.Template)
-
-// TemplateCacheLock is a write-locking mutex for Cache.
-var TemplateCacheLock = new(sync.Mutex)
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //                       part two · file and download functions                      //
