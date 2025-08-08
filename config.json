@@ -19,6 +19,15 @@
 
   "lists": [
     {
+      "name": "Google",
+      "links": [
+        { "name": "Calendar", "addr": "https://calendar.google.com" },
+        { "name": "Drive", "addr": "https://drive.google.com" },
+        { "name": "Photos", "addr": "https://photos.google.com" }
+      ]
+    },
+
+    {
       "name": "Recipes",
       "links": [
         {
