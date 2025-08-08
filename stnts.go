@@ -5,6 +5,7 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -15,6 +16,9 @@ import (
 	"net/url"
 	"os"
 	"time"
+
+	"github.com/gesedels/stnts/stnts/tools/resp"
+	"github.com/gesedels/stnts/stnts/tools/tpls"
 )
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -37,11 +41,13 @@ var (
 // 1.2: global content variables
 /////////////////////////////////
 
+// MainFS is the global asset filesystem object.
+//
+//go:embed files/*
+var MainFS embed.FS
+
 // MainSite is the global Site configuration object.
 var MainSite = new(Site)
-
-// MainTemp is the global Template object.
-var MainTemp = template.Must(template.ParseFiles("template.html"))
 
 // 1.3: global cache variables
 ///////////////////////////////
@@ -93,29 +99,6 @@ func DownloadURL(addr string) ([]byte, error) {
 ///////////////////////////////////////////////////////////////////////////////////////
 //                        part four · http response functions                        //
 ///////////////////////////////////////////////////////////////////////////////////////
-
-// WriteFromCache writes a Cache value to a ResponseWriter.
-func WriteFromCache(w http.ResponseWriter, code int, name, ctyp string) {
-	w.WriteHeader(code)
-	w.Header().Set("Content-Type", ctyp)
-	w.Write(Cache[name])
-}
-
-// WriteError writes a text/plain error to a ResponseWriter.
-func WriteError(w http.ResponseWriter, code int, text string) {
-	w.WriteHeader(code)
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	fmt.Fprintf(w, "error %d: %s", code, text)
-}
-
-// WriteHTML writes a rendered Template to a ResponseWriter.
-func WriteHTML(w http.ResponseWriter, code int, temp *template.Template, pipe any) {
-	w.WriteHeader(code)
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := temp.Execute(w, pipe); err != nil {
-		log.Printf("template error - %s", err)
-	}
-}
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //                        part five · configuration data types                       //
@@ -180,18 +163,27 @@ type Site struct {
 
 // GetIndex returns the index page.
 func GetIndex(w http.ResponseWriter, r *http.Request) {
-	WriteHTML(w, http.StatusOK, MainTemp, MainSite)
+	tobj, err := tpls.Parse(MainFS, "files/index.html")
+	if err != nil {
+		resp.Error(w, http.StatusInternalServerError, "template error")
+		log.Printf("error: %s", err)
+		return
+	}
+
+	resp.HTML(w, tobj, http.StatusOK, MainSite)
 }
 
 // GetIcon returns a new or cached icon.
 func GetIcon(w http.ResponseWriter, r *http.Request) {
 	host := r.PathValue("host")
 	if _, ok := Cache[host]; !ok {
-		WriteError(w, http.StatusNotFound, "cannot find remote icon")
+		resp.Error(w, http.StatusNotFound, "cannot find remote icon")
 		return
 	}
 
-	WriteFromCache(w, http.StatusOK, host, "image/x-icon")
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "image/x-icon")
+	w.Write(Cache[host])
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -202,8 +194,8 @@ func GetIcon(w http.ResponseWriter, r *http.Request) {
 func DebugWare(hfun http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if *FlagDbug {
-			log.Print("reparsing MainTemp")
-			MainTemp = template.Must(template.ParseFiles("template.html"))
+			log.Print("debug true - clearing template cache")
+			clear(tpls.Cache)
 		}
 
 		hfun(w, r)
