@@ -1,4 +1,4 @@
-{{ define "name" }} {{ .Conf.Blurb }} {{ end }}
+{{ define "name" }} {{ .Conf.Desc }} {{ end }}
 {{ define "main" }}
     <div class="icons">
         {{ range .Icons }}
@@ -17,11 +17,6 @@
                     {{ range .Links }}
                         <li>
                             <a href="{{ .Addr }}">{{ .Name }}</a>
-                            {{ if .From }}
-                                <span class="from">
-                                    from {{ .From }}
-                                </span>
-                            {{ end }}
                         </li>
                     {{ end }}
                 </ul>

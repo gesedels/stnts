@@ -69,10 +69,6 @@ main {
     gap: 1rem;
 }
 
-.from {
-    color: var(--grey);
-}
-
 footer {
     color: var(--grey);
     text-align: center;

@@ -1,16 +1,16 @@
 <!doctype html>
 <html>
     <head>
-        <title> {{ .Conf.Title }} · {{ block "name" . }} {{ end }} </title>
+        <title> {{ .Conf.Name }} · {{ block "name" . }} {{ end }} </title>
         <link rel="stylesheet" href="/css/style.css">
         <meta name="color-scheme" content="light dark">
     </head>
 
     <body>
         <header>
-            <h1> {{ .Conf.Title }} </h1>
-            <p class="desktop"> {{ .Conf.Blurb }} </p>
-            <p> {{ .Conf.Now.Format "3:04PM" }} </p>
+            <h1> {{ .Conf.Name }} </h1>
+            <p class="desktop"> {{ .Conf.Desc }} </p>
+            <p> {{ .Now.Format "3:04PM" }} </p>
         </header>
 
         <main>
@@ -18,7 +18,7 @@
         </main>
 
         <footer>
-            <p> {{ .Conf.Footer }} </p>
+            <p> Powered by <a href='https://github.com/gesedels/stnts'>stnts</a> (it's open source!). </p>
         </footer>
     </body>
 </html>

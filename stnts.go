@@ -13,12 +13,12 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
+
+	"github.com/gesedels/stnts/stnts/items/site"
 )
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -59,7 +59,7 @@ var Server *http.Server
 var MainFS embed.FS
 
 // Site is the global site configuration object.
-var MainSite *Site
+var MainSite *site.Site
 
 // TemplateCache is a live cache of parsed templates.
 var TemplateCache = make(map[string]*template.Template)
@@ -140,64 +140,6 @@ func WriteTemplate(w http.ResponseWriter, code int, tobj *template.Template, pip
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
-//                        part five · configuration data types                       //
-///////////////////////////////////////////////////////////////////////////////////////
-
-// 4.1: the Conf type
-//////////////////////
-
-// Conf is a single configuration map.
-type Conf struct {
-	Title    string        `json:"title"`
-	Blurb    string        `json:"blurb"`
-	Footer   template.HTML `json:"footer"`
-	TimeZone string        `json:"timezone"`
-	Now      time.Time     `json:"-"`
-}
-
-// 4.2: the Link type
-//////////////////////
-
-// Link is a single named website link.
-type Link struct {
-	Icon string `json:"icon"`
-	Name string `json:"name"`
-	From string `json:"from"`
-	Addr string `json:"addr"`
-}
-
-// Link.Host returns the Link's hostname.
-func (l *Link) Host() string {
-	uobj, _ := url.Parse(l.Addr)
-	return uobj.Hostname()
-}
-
-// Link.Root returns the Link's base URL.
-func (l *Link) Root() string {
-	uobj, _ := url.Parse(l.Addr)
-	return fmt.Sprintf("%s://%s", uobj.Scheme, uobj.Hostname())
-}
-
-// 4.3: the List type
-//////////////////////
-
-// List is a single ordered list of Links.
-type List struct {
-	Name  string  `json:"name"`
-	Links []*Link `json:"links"`
-}
-
-// 4.3: the Site type
-//////////////////////
-
-// Site is a complete container of configuration and content data.
-type Site struct {
-	Conf  *Conf   `json:"conf"`
-	Icons []*Link `json:"icons"`
-	Lists []*List `json:"lists"`
-}
-
-///////////////////////////////////////////////////////////////////////////////////////
 //                            part ??? · handler functions                           //
 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -252,7 +194,7 @@ func init() {
 	// Initialise control variables.
 	Log = log.New(os.Stdout, "", log.LstdFlags)
 	Mux = http.NewServeMux()
-	MainSite = new(Site)
+	MainSite = new(site.Site)
 	Server = &http.Server{Addr: *FlagAddr, Handler: Mux}
 
 	// Register handler routes.
@@ -263,10 +205,6 @@ func init() {
 	if err := ReadJSON(*FlagConf, MainSite); err != nil {
 		Log.Fatalf("error: %s", err)
 	}
-
-	// Configure time zone.
-	loca, _ := time.LoadLocation(MainSite.Conf.TimeZone)
-	MainSite.Conf.Now = time.Now().In(loca)
 }
 
 // main runs the main stnts program.
