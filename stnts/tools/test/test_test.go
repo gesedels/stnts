@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,4 +19,13 @@ func TestGetResponse(t *testing.T) {
 	code, body := GetResponse(w)
 	assert.Equal(t, http.StatusOK, code)
 	assert.Equal(t, "test", body)
+}
+
+func TestNewRequest(t *testing.T) {
+	// success
+	r := NewRequest("GET /", "test")
+	bytes, _ := io.ReadAll(r.Body)
+	assert.Equal(t, "GET", r.Method)
+	assert.Equal(t, "/", r.URL.Path)
+	assert.Equal(t, "test", string(bytes))
 }
