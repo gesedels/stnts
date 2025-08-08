@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"sync"
+	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -29,6 +30,7 @@ var FlagSet = flag.NewFlagSet("stnts", flag.ExitOnError)
 
 var (
 	FlagAddr = FlagSet.String("addr", "localhost:8000", "host:port to listen on")
+	FlagDbug = FlagSet.Bool("dbug", false, "enable debug mode")
 	FlagConf = FlagSet.String("conf", "", "configuration file to use")
 	FlagLogs = FlagSet.String("logs", "", "file to write logs to")
 	FlagWarm = FlagSet.Bool("warm", false, "warm icon cache before start")
@@ -129,10 +131,11 @@ func WriteHTML(w http.ResponseWriter, code int, temp *template.Template, pipe an
 
 // Conf is a single configuration map.
 type Conf struct {
-	Title    string `json:"title"`
-	Blurb    string `json:"blurb"`
-	Footer   string `json:"footer"`
-	TimeZone string `json:"timezone"`
+	Title    string        `json:"title"`
+	Blurb    string        `json:"blurb"`
+	Footer   template.HTML `json:"footer"`
+	TimeZone string        `json:"timezone"`
+	Now      time.Time     `json:"-"`
 }
 
 // 4.2: the Link type
@@ -189,6 +192,18 @@ func GetIndex(w http.ResponseWriter, r *http.Request) {
 //                         part seven · middleware functions                         //
 ///////////////////////////////////////////////////////////////////////////////////////
 
+// DebugWare wraps a HandlerFunc in middleware to perform debug actions.
+func DebugWare(hfun http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if *FlagDbug {
+			log.Print("reparsing MainTemp")
+			MainTemp = template.Must(template.ParseFiles("template.html"))
+		}
+
+		hfun(w, r)
+	}
+}
+
 // LoggingWare wraps a HandlerFunc in middleware to log every incoming request.
 func LoggingWare(hfun http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -227,6 +242,15 @@ func main() {
 		log.Fatalf("cannot read configuration file %s - %s", *FlagConf, err)
 	}
 
+	// Configure time zone.
+	log.Printf("configuration timezone %s", MainSite.Conf.TimeZone)
+	loca, err := time.LoadLocation(MainSite.Conf.TimeZone)
+	if err != nil {
+		log.Fatalf("cannot determine timezone - %s", err)
+	}
+
+	MainSite.Conf.Now = time.Now().In(loca)
+
 	// Warm cache if -warm is true.
 	if *FlagWarm {
 		log.Printf("-warm is true, warming icon cache")
@@ -247,7 +271,7 @@ func main() {
 
 	// Configure muxer.
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /", LoggingWare(GetIndex))
+	mux.HandleFunc("GET /", DebugWare(LoggingWare(GetIndex)))
 
 	// Configure and run server.
 	srv := &http.Server{Addr: *FlagAddr, Handler: mux}

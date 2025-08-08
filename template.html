@@ -1,1 +1,142 @@
-hi
+<!doctype html>
+<html>
+    <head>
+        <title> {{ .Conf.Title }} · {{ .Conf.Blurb }} </title>
+        <meta name="color-scheme" content="light dark">
+        <style>
+            :root {
+                --border: light-dark(#000, #fff);
+                --footer-fg: light-dark(#777, #aaa);
+                --header-bg: light-dark(DarkSeaGreen, DarkGreen);
+                --header-fg: light-dark(#333, #fff);
+            }
+
+            html {
+                box-sizing: border-box;
+                font: 18px sans-serif;
+                line-height: 1.6rem;
+                margin: 0;
+            }
+
+            body {
+                margin: 0;
+            }
+
+            header {
+                background-color: var(--header-bg);
+                border-bottom: 0.1rem solid var(--border);
+                color: var(--header-fg);
+                font-weight: bold;
+                display: flex;
+                flex-direction: row;
+                justify-content: space-between;
+                gap: 1rem;
+                padding: 0.25rem 0.5rem;
+            }
+
+            header h1, header p {
+                font-size: 18px;
+                margin: 0;
+            }
+
+            main {
+                margin: 1rem;
+            }
+
+            .icons {
+                display: flex;
+                flex-direction: row;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 1rem;
+            }
+
+            .icon-item {
+                min-width: 20%;
+                text-align: center;
+            }
+
+            .icon-img {
+                max-width: 100%;
+                height auto
+            }
+
+            footer {
+                color: var(--footer-fg);
+                text-align: center;
+            }
+
+            /* phone */
+            @media (max-width: 799px) {
+                html {
+                    font-size: 16px;
+                }
+
+                .desktop {
+                    display: none;
+                }
+
+                .icon-item {
+                    min-width: 30%;
+                }
+            }
+
+            /* tablet / mid desktop */
+            @media (min-width: 800px) and (max-width: 999px) {
+                .icon-item {
+                    min-width: 20%;
+                }
+            }
+
+            /* big desktop */
+            @media (min-width: 1000px) {
+                .icon-item {
+                    min-width: 10%;
+                }
+            }
+        </style>
+    </head>
+
+    <body>
+        <header>
+            <h1> {{ .Conf.Title }} </h1>
+            <p class="desktop"> {{ .Conf.Blurb }} </p>
+            <p> {{ .Conf.Now.Format "3:04PM" }} </p>
+        </header>
+
+        <main>
+            <div class="icons">
+                {{ range .Icons }}
+                    <div class="icon-item">
+                        <div class="icon-img">
+                            <a href="{{ .Addr }}">
+                                <img src="/icon/{{ .Host }}">
+                            </a>
+                        </div>
+                        <a href="{{ .Addr }}">{{ .Name }}</a>
+                    </div>
+                {{ end }}
+            </div>
+
+            <div class="lists">
+                {{ range .Lists }}
+                    <div class="list">
+                        <h2> {{ .Name }} </h2>
+                        <ul>
+                            {{ range .Links }}
+                                <li>
+                                    <a href="{{ .Addr }}">{{ .Name }}</a>
+                                    {{ if .From }} from {{ .From }} {{ end }}
+                                </li>
+                            {{ end }}
+                        </ul>
+                    </div>
+                {{ end }}
+            </div>
+        </main>
+
+        <footer>
+            <p> {{ .Conf.Footer }} </p>
+        </footer>
+    </body>
+</html>
